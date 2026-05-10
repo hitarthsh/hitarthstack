@@ -1,133 +1,229 @@
 import { Menu, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { LayoutGroup, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useId, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { site } from "@/config/site";
+import { useActiveSection } from "@/hooks/useActiveSection";
+import { getUnreadCount } from "@/utils/messages";
+import { trackEvent } from "@/analytics/analytics";
+import {
+  ACT_CONTACT_CTA,
+  ACT_RESUME_DOWNLOAD,
+  CAT_NAV,
+} from "@/analytics/eventConstants";
 
-const navLinks = [
-  { href: "#about", label: "About" },
-  { href: "#projects", label: "Projects" },
-  { href: "#experience", label: "Experience" },
-  { href: "#testimonials", label: "Testimonials" },
-];
+/**
+ * Primary navigation with router-aware links, frosted scroll state, and section spy on `/`.
+ */
+export function Navbar() {
+  const location = useLocation();
+  const reduce = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [adminUnread, setAdminUnread] = useState(() => getUnreadCount());
+  const menuId = useId();
 
-const contactBtnSm =
-  "relative overflow-hidden rounded-full font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-primary bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 px-4 py-2 text-sm inline-flex items-center justify-center gap-2";
+  const sectionIds = useMemo(
+    () =>
+      site.navItems
+        .map((n) => n.hash)
+        .filter(Boolean)
+        .map(String),
+    [],
+  );
 
-export const Navbar = () => {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const mobileNavId = useId();
+  const isHome = location.pathname === "/";
+  /** Ignore scroll-spy when off `/` so section state never drives Home + hash both active. */
+  const scrollSpySection = useActiveSection(isHome ? sectionIds : []);
+  const activeSection = isHome ? scrollSpySection : "";
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-
-    return () => window.removeEventListener("scroll", handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
-    if (!isMobileMenuOpen) return;
-    const prevOverflow = document.body.style.overflow;
+    const tick = () => setAdminUnread(getUnreadCount());
+    tick();
+    const id = window.setInterval(tick, 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKeyDown = (e) => {
-      if (e.key === "Escape") setIsMobileMenuOpen(false);
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
     };
-  }, [isMobileMenuOpen]);
+  }, [open]);
+
+  const headerClass = scrolled
+    ? "glass-strong border-b border-[var(--border)] py-3 shadow-lg shadow-black/30"
+    : "border-b border-transparent bg-transparent py-5";
+
+  const linkTo = (item) => {
+    if (item.path) return item.path;
+    if (item.hash) return `/#${item.hash}`;
+    return "/";
+  };
+
+  const isActive = (item) => {
+    if (item.path) {
+      if (item.path === "/") {
+        return (
+          location.pathname === "/" &&
+          activeSection === ""
+        );
+      }
+      return location.pathname.startsWith(item.path);
+    }
+    if (item.hash && isHome) return activeSection === item.hash;
+    return false;
+  };
+
+  const resumeHref = site.urls.resume?.trim();
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 transition-all duration-500 z-50 ${
-        isScrolled
-          ? "glass-strong py-3 border-b border-border/50 shadow-sm shadow-black/20"
-          : "bg-transparent py-5 border-b border-transparent"
-      }`}
-    >
-      <nav className="container mx-auto px-6 flex items-center justify-between">
-        <a
-          href="#"
-          className="text-xl font-bold tracking-tight hover:text-primary transition-colors rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-label={`${site.fullName}, home`}
-        >
-          {site.logoInitials}
-          <span className="text-primary">.</span>
-        </a>
-
-        {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-1">
-          <div className="glass rounded-full px-2 py-1 flex items-center gap-1">
-            {navLinks.map((link, index) => (
-              <a
-                href={link.href}
-                key={index}
-                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground rounded-full hover:bg-surface transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                {link.label}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div className="hidden md:block">
-          <a
-            href="#contact"
-            className={`${contactBtnSm} transition-transform active:scale-[0.98]`}
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${headerClass}`}>
+      <nav className="container mx-auto flex items-center justify-between px-6">
+        <motion.div whileHover={reduce ? undefined : { y: [0, -3, 0] }} transition={{ duration: 0.45 }}>
+          <Link
+            to="/"
+            className="font-display text-xl font-semibold tracking-tight text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] rounded-lg"
+            aria-label={`${site.fullName}, home`}
           >
-            Contact Me
-          </a>
+            {site.logoInitials}
+            <span className="text-[var(--accent)]">.</span>
+          </Link>
+        </motion.div>
+
+        <div className="hidden items-center gap-2 md:flex">
+          <LayoutGroup>
+            <div className="glass-surface flex items-center gap-2 rounded-full px-3 py-2 md:gap-2.5 md:px-4">
+              {site.navItems.map((item) => {
+                const active = isActive(item);
+                return (
+                  <Link
+                    key={item.label + (item.path ?? item.hash ?? "")}
+                    to={linkTo(item)}
+                    className={`relative rounded-full px-4 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                      active
+                        ? "text-[#0a0a0a]"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    }`}
+                  >
+                    {active ? (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 -z-10 rounded-full bg-[var(--accent)]"
+                        transition={{
+                          type: "spring",
+                          stiffness: 380,
+                          damping: 28,
+                        }}
+                      />
+                    ) : null}
+                    <span className="relative z-10 inline-flex items-center gap-2">
+                      {item.label}
+                      {item.path === "/admin" && adminUnread > 0 ? (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+                          {adminUnread > 9 ? "9+" : adminUnread}
+                        </span>
+                      ) : null}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </LayoutGroup>
+          {resumeHref ? (
+            <a
+              href={resumeHref}
+              download
+              onClick={() =>
+                trackEvent({ category: CAT_NAV, action: ACT_RESUME_DOWNLOAD })
+              }
+              className="hidden lg:inline-flex min-h-11 items-center rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              {site.resumeCtaLabel}
+            </a>
+          ) : null}
+          <Link
+            to="/#contact"
+            onClick={() =>
+              trackEvent({
+                category: CAT_NAV,
+                action: ACT_CONTACT_CTA,
+                label: site.contactCtaLabel,
+              })
+            }
+            className="inline-flex min-h-11 items-center rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-[#0a0a0a] shadow-lg shadow-[var(--accent)]/20 transition-transform hover:brightness-95 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            {site.contactCtaLabel}
+          </Link>
         </div>
 
-        {/* Mobile Menu Button */}
         <button
           type="button"
-          className="md:hidden p-2 text-foreground rounded-lg cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          aria-expanded={isMobileMenuOpen}
-          aria-controls={mobileNavId}
-          aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
-          onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-[var(--border)] md:hidden"
+          aria-expanded={open}
+          aria-controls={menuId}
+          aria-label={open ? "Close menu" : "Open menu"}
+          onClick={() => setOpen((v) => !v)}
         >
-          {isMobileMenuOpen ? <X size={24} aria-hidden /> : <Menu size={24} aria-hidden />}
+          {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </nav>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div
-          id={mobileNavId}
-          className="md:hidden glass-strong animate-fade-in border-t border-border/50 max-h-[min(70vh,calc(100dvh-5rem))] overflow-y-auto overscroll-contain"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Site navigation"
+      {open ? (
+        <motion.div
+          id={menuId}
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="glass-strong border-t border-[var(--border)] md:hidden"
         >
-          <div className="container mx-auto px-6 py-6 flex flex-col gap-1">
-            {navLinks.map((link, index) => (
-              <a
-                href={link.href}
-                key={index}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-lg text-muted-foreground hover:text-foreground py-3 px-2 rounded-xl hover:bg-surface/80 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          <div className="container mx-auto flex max-h-[70vh] flex-col gap-2 overflow-y-auto px-6 py-6">
+            {site.navItems.map((item) => (
+              <Link
+                key={item.label + (item.path ?? item.hash ?? "")}
+                to={linkTo(item)}
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-lg text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
               >
-                {link.label}
-              </a>
+                <span>{item.label}</span>
+                {item.path === "/admin" && adminUnread > 0 ? (
+                  <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                    {adminUnread > 9 ? "9+" : adminUnread}
+                  </span>
+                ) : null}
+              </Link>
             ))}
-
-            <a
-              href="#contact"
-              className={`${contactBtnSm} mt-4 justify-center transition-transform active:scale-[0.98]`}
-              onClick={() => setIsMobileMenuOpen(false)}
+            <Link
+              to="/#contact"
+              onClick={() => {
+                setOpen(false);
+                trackEvent({
+                  category: CAT_NAV,
+                  action: ACT_CONTACT_CTA,
+                  label: site.contactCtaLabel,
+                });
+              }}
+              className="mt-2 inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-[#0a0a0a]"
             >
-              Contact Me
-            </a>
+              {site.contactCtaLabel}
+            </Link>
           </div>
-        </div>
-      )}
+        </motion.div>
+      ) : null}
     </header>
   );
-};
+}

@@ -1,3 +1,12 @@
+/**
+ * Primary pill button with size presets.
+ *
+ * @param {{
+ *   className?: string;
+ *   size?: 'sm' | 'default' | 'lg';
+ *   children: import('react').ReactNode;
+ * } & import('react').ButtonHTMLAttributes<HTMLButtonElement>} props
+ */
 export const Button = ({
   className = "",
   size = "default",

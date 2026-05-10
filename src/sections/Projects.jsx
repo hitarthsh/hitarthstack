@@ -1,154 +1,140 @@
-import { ArrowUpRight, Github } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
+import { ArrowUpRight } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { AnimatedBorderButton } from "@/components/AnimatedBorderButton";
+import { MarqueeProjectCard } from "@/components/MarqueeProjectCard";
+import { MarqueeTicker } from "@/components/MarqueeTicker";
+import { ProjectModal } from "@/components/ProjectModal";
+import { SectionReveal } from "@/components/SectionReveal";
 import { site } from "@/config/site";
 
-const gh = site.urls.github;
+function cardAriaLabel(title) {
+  return site.sections.projects.cardAriaLabelTemplate.replace(
+    /\{\{title\}\}/g,
+    title,
+  );
+}
 
-const projects = [
-  {
-    title: "Fintech Dashboard",
-    description:
-      "A comprehensive financial analytics platform with real-time data visualization, portfolio management, and AI-powered insights.",
-    image: "/projects/project1.png",
-    tags: ["React", "Typescript", "NodeJS"],
-    link: "#",
-    github: gh,
-  },
-  {
-    title: "E-Commerce Platform",
-    description:
-      "A full-featured e-commerce solution with inventory management, payment processing, and analytics dashboard.",
-    image: "/projects/project2.png",
-    tags: ["Next.js", "Stripe", "PostgreSQL", "Tailwind"],
-    link: "#",
-    github: gh,
-  },
-  {
-    title: "AI Writing Assistant",
-    description:
-      "An intelligent writing tool powered by GPT-4, helping users create better content faster.",
-    image: "/projects/project3.png",
-    tags: ["React", "OpenAI", "Python", "FastAPI"],
-    link: "#",
-    github: gh,
-  },
-  {
-    title: "Project Management Tool",
-    description:
-      "A collaborative workspace for teams with real-time updates, task tracking, and integrations.",
-    image: "/projects/project4.png",
-    tags: ["Next.js", "Socket.io", "MongoDB", "Redis"],
-    link: "#",
-    github: gh,
-  },
-];
+function githubAriaLabel(title) {
+  return site.sections.projects.cardGithubAriaLabelTemplate.replace(
+    /\{\{title\}\}/g,
+    title,
+  );
+}
 
-export const Projects = () => {
+/**
+ * Projects showcase: infinite marquee ticker or static grid when reduced motion is preferred.
+ */
+export function Projects() {
+  const reduce = useReducedMotion();
+  const [detail, setDetail] = useState(null);
+
+  const modalLabels = useMemo(
+    () => ({
+      modalCloseLabel: site.sections.projects.modalCloseLabel,
+      modalLiveDemoLabel: site.sections.projects.modalLiveDemoLabel,
+      modalGithubLabel: site.sections.projects.modalGithubLabel,
+    }),
+    [],
+  );
+
+  const openModal = useCallback((p) => {
+    setDetail(p);
+  }, []);
+
+  const closeModal = useCallback(() => setDetail(null), []);
+
+  const proj = site.sections.projects;
+  const projectsCopy = site.projects;
+  const count = projectsCopy.length;
+
+  const tickerContent = useMemo(
+    () =>
+      projectsCopy.map((project) => (
+        <MarqueeProjectCard
+          key={project.id}
+          project={project}
+          reducedMotion={Boolean(reduce)}
+          ariaLabel={cardAriaLabel(project.title)}
+          githubAriaLabel={githubAriaLabel(project.title)}
+          holdArrowAriaLabel={proj.holdArrowAriaLabel}
+          onOpen={openModal}
+        />
+      )),
+    [openModal, proj.holdArrowAriaLabel, projectsCopy, reduce],
+  );
+
   return (
-    <section
-      id="projects"
-      className="py-32 relative overflow-hidden scroll-mt-24 md:scroll-mt-28"
-    >
-      {/* Bg glows */}
-      <div className="absolute top-1/4 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 left-0 w-64 h-64 bg-highlight/5 rounded-full blur-3xl" />
-      <div className="container mx-auto px-6 relative z-10">
-        {/* Section Header */}
-        <div className="text-center mx-auto max-w-3xl mb-16">
-          <span className="text-secondary-foreground text-sm font-medium tracking-wider uppercase animate-fade-in">
-            Featured Work
-          </span>
-          <h2 className="text-4xl md:text-5xl font-bold mt-4 mb-6 animate-fade-in animation-delay-100 text-secondary-foreground">
-            Projects that
-            <span className="font-serif italic font-normal text-white">
-              {" "}
-              make an impact.
-            </span>
-          </h2>
-          <p className="text-muted-foreground animate-fade-in animation-delay-200">
-            A selection of my recent work, from complex web applications to
-            innovative tools that solve real-world problems.
-          </p>
+    <>
+      <SectionReveal
+        id="projects"
+        aria-label={proj.showcaseAriaLabel}
+        className="relative overflow-x-hidden scroll-mt-24 py-14 md:scroll-mt-28 md:py-16 lg:py-20"
+      >
+        <div className="pointer-events-none absolute left-6 top-14 h-52 w-52 rounded-full bg-[var(--accent)]/5 blur-3xl md:left-10 md:top-16 md:h-60 md:w-60 lg:h-64 lg:w-64" />
+
+        <div className="container relative z-10 mx-auto px-6">
+          <div className="mb-6 max-w-3xl text-left md:mb-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--accent)] sm:text-xs sm:tracking-[0.25em]">
+              {proj.kicker}
+            </p>
+            <h2 className="mt-2 font-display text-[clamp(1.85rem,4.5vw,3.25rem)] leading-[1.12] tracking-tight text-[var(--text-primary)] md:mt-2.5">
+              {proj.title}{" "}
+              <span className="text-[var(--text-muted)]">{proj.titleAccent}</span>
+            </h2>
+            <div className="mt-3 flex flex-wrap items-center gap-3 md:mt-4">
+              <p className="max-w-xl text-sm leading-relaxed text-[var(--text-muted)] md:text-[0.9375rem]">
+                {proj.marqueeSubtitle}
+              </p>
+              <span className="inline-flex shrink-0 items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 font-mono text-[11px] uppercase tracking-wide text-[var(--accent)]">
+                {count} {proj.projectCountSuffix}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Projects Grid */}
-        <div className="grid md:grid-cols-2 gap-8">
-          {projects.map((project, idx) => (
-            <div
-              key={idx}
-              className="group glass rounded-2xl overflow-hidden animate-fade-in md:row-span-1"
-              style={{ animationDelay: `${(idx + 1) * 100}ms` }}
-            >
-              {/* Image */}
-              <div className="relative overflow-hidden aspect-video">
-                <img
-                  src={project.image}
-                  alt={project.title}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                <div
-                  className="absolute inset-0 
-                bg-gradient-to-t from-card via-card/50
-                 to-transparent opacity-60"
-                />
-                {/* Overlay Links */}
-                <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <a
-                    href={project.link}
-                    aria-label={`Open ${project.title} live demo`}
-                    className="p-3 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <ArrowUpRight className="w-5 h-5" aria-hidden />
-                  </a>
-                  <a
-                    href={project.github}
-                    aria-label={`${project.title} on GitHub`}
-                    className="p-3 rounded-full glass hover:bg-primary hover:text-primary-foreground transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <Github className="w-5 h-5" aria-hidden />
-                  </a>
-                </div>
-              </div>
+        <div className="relative z-[1] ml-[calc(50%-50vw)] w-screen max-w-[100vw] overflow-x-hidden">
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-[2] w-16 bg-gradient-to-r from-[var(--bg)] via-[var(--bg)]/85 to-transparent md:w-24"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-[2] w-16 bg-gradient-to-l from-[var(--bg)] via-[var(--bg)]/85 to-transparent md:w-24"
+            aria-hidden
+          />
 
-              {/* Content */}
-              <div className="p-6 space-y-4">
-                <div className="flex items-start justify-between">
-                  <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">
-                    {project.title}
-                  </h3>
-                  <ArrowUpRight
-                    className="w-5 h-5 
-                  text-muted-foreground group-hover:text-primary
-                   group-hover:translate-x-1 
-                   group-hover:-translate-y-1 transition-all"
-                  />
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  {project.description}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {project.tags.map((tag, tagIdx) => (
-                    <span
-                      key={tagIdx}
-                      className="px-4 py-1.5 rounded-full bg-surface text-xs font-medium border border-border/50 text-muted-foreground hover:border-primary/50 hover:text-primary transition-all duration-300"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+          {reduce ? (
+            <div className="container mx-auto px-6 pb-2">
+              <div className="grid gap-8 sm:grid-cols-2">
+                {tickerContent}
               </div>
             </div>
-          ))}
+          ) : (
+            <MarqueeTicker durationSec={40}>
+              {tickerContent}
+            </MarqueeTicker>
+          )}
         </div>
 
-        {/* View All CTA */}
-        <div className="text-center mt-12 animate-fade-in animation-delay-500">
-          <AnimatedBorderButton href={site.urls.github}>
-            View on GitHub
-            <ArrowUpRight className="w-5 h-5" />
-          </AnimatedBorderButton>
+        <div className="container relative z-10 mx-auto px-6">
+          <div className="mt-8 flex justify-center md:mt-10">
+            <AnimatedBorderButton
+              href={site.urls.github}
+              className="!px-5 !py-2.5 !text-sm sm:!px-6 sm:!text-base"
+            >
+              {proj.githubCta}
+              <ArrowUpRight className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
+            </AnimatedBorderButton>
+          </div>
         </div>
-      </div>
-    </section>
+      </SectionReveal>
+
+      <ProjectModal
+        project={detail}
+        open={detail != null}
+        onClose={closeModal}
+        labels={modalLabels}
+      />
+    </>
   );
-};
+}

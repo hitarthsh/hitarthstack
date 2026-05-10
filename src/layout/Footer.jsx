@@ -1,68 +1,96 @@
-import { Github, Linkedin } from "lucide-react";
+import { Github, Globe, Linkedin } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { site } from "@/config/site";
+import { trackEvent } from "@/analytics/analytics";
+import { ACT_SOCIAL_CLICK, CAT_NAV } from "@/analytics/eventConstants";
 
-const socialLinks = [
-  { icon: Github, href: site.urls.github, label: "GitHub" },
-  { icon: Linkedin, href: site.urls.linkedin, label: "LinkedIn" },
-];
+const iconMap = {
+  github: Github,
+  linkedin: Linkedin,
+  website: Globe,
+};
 
-const footerLinks = [
-  { href: "#about", label: "About" },
-  { href: "#projects", label: "Projects" },
-  { href: "#experience", label: "Experience" },
-  { href: "#contact", label: "Contact" },
-];
-
-export const Footer = () => {
-  const currentYear = new Date().getFullYear();
+/**
+ * Footer with animated wave divider and social tracking hooks.
+ */
+export function Footer() {
+  const reduce = useReducedMotion();
 
   return (
-    <footer className="py-12 border-t border-border">
-      <div className="container mx-auto px-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-          {/* Logo & Copyright */}
+    <footer className="relative mt-12 overflow-hidden border-t border-[var(--border)] bg-[var(--bg)]">
+      <div
+        className="relative h-16 w-[200%] text-[var(--accent)] opacity-40"
+        aria-hidden
+      >
+        <motion.svg
+          className={`absolute bottom-0 left-0 h-16 w-[200%] ${reduce ? "" : "animate-footer-wave"}`}
+          viewBox="0 0 1440 120"
+          preserveAspectRatio="none"
+        >
+          <path
+            fill="currentColor"
+            fillOpacity="0.35"
+            d="M0,64L80,58.7C160,53,320,43,480,48C640,53,800,75,960,74.7C1120,75,1280,53,1360,42.7L1440,32L1440,120L1360,120C1280,120,1120,120,960,120C800,120,640,120,480,120C320,120,160,120,80,120L0,120Z"
+          />
+        </motion.svg>
+      </div>
+
+      <div className="container mx-auto px-6 py-12">
+        <div className="flex flex-col items-center justify-between gap-8 md:flex-row">
           <div className="text-center md:text-left">
-            <a
-              href="#"
-              className="text-xl font-bold tracking-tight hover:text-primary transition-colors rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            <Link
+              to="/"
+              className="font-display text-xl font-semibold tracking-tight text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label={`${site.fullName}, home`}
             >
               {site.logoInitials}
-              <span className="text-primary">.</span>
-            </a>
-            <p className="text-sm text-muted-foreground mt-2">
-              © {currentYear} {site.fullName}. All rights reserved.
+              <span className="text-[var(--accent)]">.</span>
+            </Link>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              © {new Date().getFullYear()} {site.fullName}.{" "}
+              {site.footerCopyrightSuffix}
             </p>
           </div>
 
-          {/* Links */}
           <nav className="flex flex-wrap justify-center gap-6">
-            {footerLinks.map((link) => (
-              <a
+            {site.footerLinks.map((link) => (
+              <Link
                 key={link.href}
-                href={link.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                to={link.href}
+                className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
-          {/* Social Links */}
-          <div className="flex items-center gap-4">
-            {socialLinks.map((social) => (
-              <a
-                key={social.label}
-                href={social.href}
-                aria-label={social.label}
-                className="p-2 rounded-full glass hover:bg-primary/10 hover:text-primary transition-all"
-              >
-                <social.icon className="w-5 h-5" />
-              </a>
-            ))}
+          <div className="flex items-center gap-3">
+            {site.socialPlatforms.map((s) => {
+              const Icon = iconMap[s.key];
+              const href = site.urls[s.urlKey];
+              if (!Icon || !href) return null;
+              return (
+                <a
+                  key={s.key}
+                  href={href}
+                  aria-label={s.label}
+                  onClick={() =>
+                    trackEvent({
+                      category: CAT_NAV,
+                      action: ACT_SOCIAL_CLICK,
+                      label: s.label,
+                    })
+                  }
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+                >
+                  <Icon className="h-5 w-5" />
+                </a>
+              );
+            })}
           </div>
         </div>
       </div>
     </footer>
   );
-};
+}

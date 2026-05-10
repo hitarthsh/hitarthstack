@@ -23,7 +23,11 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Framer Motion's `motion` JSX namespace is treated like a normal identifier by `no-unused-vars`.
+      'no-unused-vars': [
+        'error',
+        { varsIgnorePattern: '^([A-Z_].*|motion)$' },
+      ],
     },
   },
 ])

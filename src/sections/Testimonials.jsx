@@ -1,171 +1,143 @@
 import { ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { SectionReveal } from "@/components/SectionReveal";
+import { site } from "@/config/site";
 
-const testimonials = [
-  {
-    quote:
-      "Hitarth is one of the most talented engineers I've worked with. His attention to detail and ability to translate complex requirements into elegant solutions is remarkable.",
-    author: "Sarah Chen",
-    role: "CTO, Tech Innovators Inc.",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-  },
-  {
-    quote:
-      "Working with Hitarth was a game-changer for our project. He delivered ahead of schedule with code quality that set a new standard for our team.",
-    author: "Michael Rodriguez",
-    role: "Product Manager, Digital Solutions",
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-  },
-  {
-    quote:
-      "Hitarth's expertise in React and TypeScript helped us rebuild our entire frontend in record time. His architectural decisions continue to pay dividends.",
-    author: "Emily Watson",
-    role: "Engineering Lead, StartUp Labs",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-  },
-  {
-    quote:
-      "Not only is Hitarth technically brilliant, but he's also a fantastic communicator and team player. He elevated everyone around him.",
-    author: "David Kim",
-    role: "CEO, Innovation Hub",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-  },
-];
-
-export const Testimonials = () => {
+/**
+ * Drag-friendly testimonial carousel with keyboard controls.
+ */
+export function Testimonials() {
+  const testimonials = site.testimonials;
+  const reduce = useReducedMotion();
+  const trackRef = useRef(null);
+  const [constraints, setConstraints] = useState({ left: 0, right: 0 });
   const [activeIdx, setActiveIdx] = useState(0);
 
-  const next = () => {
-    setActiveIdx((prev) => (prev + 1) % testimonials.length);
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      const max = Math.max(0, el.scrollWidth - el.clientWidth);
+      setConstraints({ left: -max, right: 0 });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [testimonials.length]);
+
+  const go = (dir) => {
+    setActiveIdx((prev) => {
+      const next = (prev + dir + testimonials.length) % testimonials.length;
+      return next;
+    });
   };
 
-  const previous = () => {
-    setActiveIdx(
-      (prev) => (prev - 1 + testimonials.length) % testimonials.length
-    );
-  };
+  const active = testimonials[activeIdx];
+
   return (
-    <section
+    <SectionReveal
       id="testimonials"
-      className="py-32 relative overflow-hidden scroll-mt-24 md:scroll-mt-28"
+      className="relative overflow-hidden scroll-mt-24 py-24 md:scroll-mt-28 md:py-32"
     >
-      <div
-        className="absolute top-1/2 left-1/2
-       w-[800px] h-[800px] bg-primary/5
-        rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"
-      />
-      <div
-        className="container mx-auto 
-      px-6 relative z-10"
-      >
-        {/* Section Header */}
-        <div
-          className="text-center max-w-3xl 
-        mx-auto mb-16"
-        >
-          <span
-            className="text-secondary-foreground 
-          text-sm font-medium tracking-wider 
-          uppercase animate-fade-in"
-          >
-            What People Say
-          </span>
-          <h2
-            className="text-4xl md:text-5xl 
-          font-bold mt-4 mb-6 animate-fade-in 
-          animation-delay-100 text-secondary-foreground"
-          >
-            Kind words from{" "}
-            <span
-              className="font-serif italic 
-            font-normal text-white"
-            >
-              amazing people.
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[720px] w-[720px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent)]/5 blur-3xl" />
+      <div className="container relative z-10 mx-auto px-6">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--accent)]">
+            {site.sections.testimonials.kicker}
+          </p>
+          <h2 className="mt-4 font-display text-4xl text-[var(--text-primary)] md:text-5xl">
+            {site.sections.testimonials.title}{" "}
+            <span className="text-[var(--text-muted)]">
+              {site.sections.testimonials.titleAccent}
             </span>
           </h2>
         </div>
 
-        {/* Testimonial Carousel */}
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            {/* Main Testimonial */}
-            <div className="glass p-8 rounded-3xl md:p-12 glow-border animate-fade-in animation-delay-200">
-              <div className="absolute -top-4 left-8 w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                <Quote className="w-6 h-6 text-primary-foreground" aria-hidden />
-              </div>
-
-              <blockquote className="text-xl md:text-2xl font-medium leading-relaxed mb-8 pt-4">
-                <span aria-live="polite" aria-atomic="true">
-                  &ldquo;{testimonials[activeIdx].quote}&rdquo;
-                </span>
-              </blockquote>
-
-              <div className="flex items-center gap-4">
-                <img
-                  src={testimonials[activeIdx].avatar}
-                  alt={testimonials[activeIdx].author}
-                  className="w-14 h-14 rounded-full object-cover ring-2 ring-primary/20"
-                />
-                <div>
-                  <div className="font-semibold">
-                    {testimonials[activeIdx].author}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {testimonials[activeIdx].role}
+        <div className="mx-auto max-w-6xl overflow-hidden">
+          <motion.div
+            ref={trackRef}
+            drag={reduce ? false : "x"}
+            dragConstraints={constraints}
+            dragElastic={0.06}
+            className="flex cursor-grab gap-5 active:cursor-grabbing"
+          >
+            {testimonials.map((t, idx) => (
+              <article
+                key={t.author}
+                className="min-w-[min(90vw,440px)] shrink-0 rounded-3xl border border-[var(--border)] bg-[var(--surface)]/85 p-8 shadow-xl backdrop-blur-xl"
+                aria-hidden={idx !== activeIdx}
+              >
+                <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent)] text-[#0a0a0a]">
+                  <Quote className="h-6 w-6" aria-hidden />
+                </div>
+                <p className="text-lg leading-relaxed text-[var(--text-primary)] md:text-xl">
+                  &ldquo;{t.quote}&rdquo;
+                </p>
+                <div className="mt-6 flex items-center gap-3">
+                  <img
+                    src={t.avatar}
+                    alt={t.author}
+                    loading="lazy"
+                    className="h-12 w-12 rounded-full object-cover ring-2 ring-[var(--accent)]/30"
+                  />
+                  <div>
+                    <div className="font-semibold">{t.author}</div>
+                    <div className="text-sm text-[var(--text-muted)]">{t.role}</div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </article>
+            ))}
+          </motion.div>
+        </div>
 
-            {/* Testimonials Navigation */}
-            <div className="flex items-center justify-center gap-4 mt-8">
+        <div className="mx-auto mt-8 flex max-w-6xl items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            aria-label={site.sections.testimonials.prevLabel}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+          </button>
+
+          <div
+            className="flex flex-wrap items-center justify-center gap-2"
+            role="tablist"
+            aria-label={site.sections.testimonials.tabsLabel}
+          >
+            {testimonials.map((t, idx) => (
               <button
+                key={t.author}
                 type="button"
-                className="p-3 rounded-full glass hover:bg-primary/10 hover:text-primary transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                onClick={previous}
-                aria-label="Previous testimonial"
-              >
-                <ChevronLeft className="w-6 h-6" aria-hidden />
-              </button>
-
-              <div
-                className="flex gap-2 items-center"
-                role="tablist"
-                aria-label="Choose testimonial"
-              >
-                {testimonials.map((t, idx) => (
-                  <button
-                    key={t.author}
-                    type="button"
-                    role="tab"
-                    aria-selected={idx === activeIdx}
-                    aria-label={`Show testimonial from ${t.author}`}
-                    onClick={() => setActiveIdx(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                      idx === activeIdx
-                        ? "w-8 bg-primary"
-                        : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="p-3 rounded-full glass hover:bg-primary/10 hover:text-primary transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                onClick={next}
-                aria-label="Next testimonial"
-              >
-                <ChevronRight className="w-6 h-6" aria-hidden />
-              </button>
-            </div>
+                role="tab"
+                aria-selected={idx === activeIdx}
+                aria-label={`Show testimonial from ${t.author}`}
+                onClick={() => setActiveIdx(idx)}
+                className={`h-2 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                  idx === activeIdx
+                    ? "w-9 bg-[var(--accent)]"
+                    : "w-2 bg-[var(--text-muted)]/35 hover:bg-[var(--text-muted)]/55"
+                }`}
+              />
+            ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => go(1)}
+            aria-label={site.sections.testimonials.nextLabel}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          >
+            <ChevronRight className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+
+        <div className="sr-only" aria-live="polite">
+          {active.author}: {active.quote}
         </div>
       </div>
-    </section>
+    </SectionReveal>
   );
-};
+}

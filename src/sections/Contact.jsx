@@ -1,282 +1,114 @@
-import {
-  Mail,
-  MapPin,
-  Send,
-  CheckCircle,
-  AlertCircle,
-  Globe,
-} from "lucide-react";
-import { Button } from "@/components/Button";
 import { useState } from "react";
-import emailjs from "@emailjs/browser";
+import { SectionReveal } from "@/components/SectionReveal";
+import { ContactCard } from "@/components/contact/ContactCard";
+import { ContactIntroColumn } from "@/components/contact/ContactIntroColumn";
 import { site } from "@/config/site";
+import { useToast } from "@/context/ToastContext";
+import { trackEvent } from "@/analytics/analytics";
+import { ACT_FORM_SUBMIT, CAT_CONTACT } from "@/analytics/eventConstants";
+import { saveMessage } from "@/utils/messages";
 
-const contactInfo = [
-  {
-    icon: Mail,
-    label: "Email",
-    value: site.contact.email,
-    href: `mailto:${site.contact.email}`,
-  },
-  {
-    icon: Globe,
-    label: "Website",
-    value: "creativitycoder.com",
-    href: site.urls.website,
-  },
-  {
-    icon: MapPin,
-    label: "Location",
-    value: site.contact.location,
-    href: null,
-  },
-];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MESSAGE_MIN = 20;
+const MESSAGE_MAX = 500;
 
-export const Contact = () => {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    message: "",
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState({
-    type: null, // 'success' or 'error'
-    message: "",
-  });
+const emptyForm = () => ({
+  name: "",
+  email: "",
+  subject: "",
+  message: "",
+  budget: "",
+  projectType: "",
+});
 
-  const handleSubmit = async (e) => {
+/**
+ * Split contact layout with local contact form, floating labels, and clipboard email.
+ */
+export function Contact() {
+  const { showToast } = useToast();
+  const [formData, setFormData] = useState(emptyForm);
+  const [errors, setErrors] = useState(/** @type {Record<string, string>} */ ({}));
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const f = site.contact.form;
+
+  const submit = async (e) => {
     e.preventDefault();
+    const nextErrors = /** @type {Record<string, string>} */ ({});
+    if (!formData.name.trim()) nextErrors.name = f.requiredHint;
+    if (!formData.email.trim()) nextErrors.email = f.requiredHint;
+    else if (!EMAIL_RE.test(formData.email.trim())) nextErrors.email = f.emailInvalidHint;
+    if (!formData.subject.trim()) nextErrors.subject = f.requiredHint;
+    if (!formData.budget) nextErrors.budget = f.requiredHint;
+    if (!formData.projectType) nextErrors.projectType = f.requiredHint;
+    const msgLen = formData.message.trim().length;
+    if (msgLen < MESSAGE_MIN) nextErrors.message = f.messageMinHint;
+    if (formData.message.length > MESSAGE_MAX) nextErrors.message = f.messageMaxHint;
 
-    setIsLoading(true);
-    setSubmitStatus({ type: null, message: "" });
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+
+    setLoading(true);
     try {
-      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-      if (!serviceId || !templateId || !publicKey) {
-        throw new Error(
-          "EmailJS configuration is missing. Please check your environment variables.",
-        );
-      }
-
-      await emailjs.send(
-        serviceId,
-        templateId,
-        {
-          name: formData.name,
-          email: formData.email,
-          message: formData.message,
-        },
-        publicKey,
-      );
-
-      setSubmitStatus({
-        type: "success",
-        message: "Message sent successfully! I'll get back to you soon.",
+      await new Promise((r) => window.setTimeout(r, 800));
+      saveMessage({
+        id: crypto.randomUUID(),
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+        budget: formData.budget,
+        projectType: formData.projectType,
+        sentAt: new Date().toISOString(),
+        read: false,
+        starred: false,
+        replied: false,
       });
-      setFormData({ name: "", email: "", message: "" });
+      showToast(f.successMessage, "success");
+      trackEvent({ category: CAT_CONTACT, action: ACT_FORM_SUBMIT });
+      setFormData(emptyForm());
+      setErrors({});
     } catch (err) {
-      console.error("EmailJS error:", err);
-      const message =
-        err && typeof err === "object" && "text" in err
-          ? String(err.text)
-          : err instanceof Error
-            ? err.message
-            : "Failed to send message. Please try again later.";
-      setSubmitStatus({
-        type: "error",
-        message,
-      });
+      console.error(err);
+      showToast(f.genericErrorMessage, "error");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(site.contact.email);
+      setCopied(true);
+      showToast(site.contact.section.copiedLabel, "success");
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      showToast(site.contact.form.genericErrorMessage, "error");
+    }
+  };
+
   return (
-    <section
+    <SectionReveal
       id="contact"
-      className="py-32 relative overflow-hidden scroll-mt-24 md:scroll-mt-28"
+      className="relative overflow-hidden scroll-mt-24 py-24 md:scroll-mt-28 md:py-32"
     >
-      <div className="absolute top-0 left-0 w-full h-full">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-highlight/5 rounded-full blur-3xl" />
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/4 top-24 h-72 w-72 rounded-full bg-[var(--accent)]/5 blur-3xl" />
+        <div className="absolute bottom-16 right-10 h-64 w-64 rounded-full bg-[var(--accent)]/5 blur-3xl" />
       </div>
 
-      <div className="container mx-auto px-6 relative z-10">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-secondary-foreground text-sm font-medium tracking-wider uppercase animate-fade-in">
-            Get In Touch
-          </span>
-          <h2 className="text-4xl md:text-5xl font-bold mt-4 mb-6 animate-fade-in animation-delay-100 text-secondary-foreground">
-            Let&apos;s build{" "}
-            <span className="font-serif italic font-normal text-white">
-              something great.
-            </span>
-          </h2>
-          <p className="text-muted-foreground animate-fade-in animation-delay-200">
-            Have a project in mind? I&apos;d love to hear about it. Send a message
-            or reach out via GitHub or LinkedIn.
-          </p>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-12 max-w-5xl mx-auto">
-          <div className="glass p-8 rounded-3xl border border-primary/30 animate-fade-in animation-delay-300">
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium mb-2"
-                >
-                  Name
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  required
-                  placeholder="Your name..."
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-surface rounded-xl border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium mb-2"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="your@email.com"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  className="w-full px-4 py-3 bg-surface rounded-xl border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="message"
-                  className="block text-sm font-medium mb-2"
-                >
-                  Message
-                </label>
-                <textarea
-                  id="message"
-                  rows={5}
-                  required
-                  value={formData.message}
-                  onChange={(e) =>
-                    setFormData({ ...formData, message: e.target.value })
-                  }
-                  placeholder="Your message..."
-                  className="w-full px-4 py-3 bg-surface rounded-xl border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none"
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                type="submit"
-                size="lg"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>Sending...</>
-                ) : (
-                  <>
-                    Send Message
-                    <Send className="w-5 h-5" />
-                  </>
-                )}
-              </Button>
-
-              {submitStatus.type && (
-                <div
-                  className={`flex items-center gap-3
-                     p-4 rounded-xl ${
-                       submitStatus.type === "success"
-                         ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                         : "bg-red-500/10 border border-red-500/20 text-red-400"
-                     }`}
-                >
-                  {submitStatus.type === "success" ? (
-                    <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  )}
-                  <p className="text-sm">{submitStatus.message}</p>
-                </div>
-              )}
-            </form>
-          </div>
-
-          {/* Contact Info */}
-          <div className="space-y-6 animate-fade-in animation-delay-400">
-            <div className="glass rounded-3xl p-8">
-              <h3 className="text-xl font-semibold mb-6">
-                Contact Information
-              </h3>
-              <div className="space-y-4">
-                {contactInfo.map((item, i) => {
-                  const inner = (
-                    <>
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <item.icon className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-muted-foreground">
-                          {item.label}
-                        </div>
-                        <div className="font-medium">{item.value}</div>
-                      </div>
-                    </>
-                  );
-                  if (!item.href) {
-                    return (
-                      <div
-                        key={i}
-                        className="flex items-center gap-4 p-4 rounded-xl border border-transparent"
-                      >
-                        {inner}
-                      </div>
-                    );
-                  }
-                  return (
-                    <a
-                      key={i}
-                      href={item.href}
-                      className="flex items-center gap-4 p-4 rounded-xl hover:bg-surface transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                      {inner}
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Availability Card */}
-            <div className="glass rounded-3xl p-8 border border-primary/30">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="font-medium">Open to opportunities</span>
-              </div>
-              <p className="text-muted-foreground text-sm">
-                I&apos;m interested in collaboration, freelance work, and roles
-                where React craftsmanship and product thinking matter.
-              </p>
-            </div>
-          </div>
+      <div className="container relative z-10 mx-auto px-6">
+        <div className="grid gap-14 lg:grid-cols-2 lg:items-start">
+          <ContactIntroColumn copied={copied} onCopyEmail={copyEmail} />
+          <ContactCard
+            formData={formData}
+            setFormData={setFormData}
+            errors={errors}
+            loading={loading}
+            onSubmit={submit}
+          />
         </div>
       </div>
-    </section>
+    </SectionReveal>
   );
-};
+}

@@ -1,19 +1,38 @@
 const baseClass =
   "relative bg-transparent border border-border text-foreground hover:border-primary/50 transition-all duration-1000 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed group px-8 py-4 text-lg font-medium rounded-full overflow-visible animated-border";
 
+/**
+ * Pill-shaped control with an animated SVG stroke border.
+ *
+ * @param {{
+ *   children: import('react').ReactNode;
+ *   href?: string;
+ *   className?: string;
+ *   external?: boolean;
+ *   download?: boolean | string;
+ * }} props
+ */
 export const AnimatedBorderButton = ({
   children,
   href,
   className = "",
+  external,
+  download,
   ...props
 }) => {
   const Tag = href ? "a" : "button";
+  const looksExternal =
+    typeof href === "string" && /^https?:\/\//i.test(href);
+  const openInNewTab = external ?? looksExternal;
   const extraProps =
     href != null
       ? {
           href,
-          rel: "noopener noreferrer",
-          target: "_blank",
+          ...(openInNewTab
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {}),
+          ...(download ? { download: download === true ? true : download } : {}),
+          ...props,
         }
       : { type: "button", ...props };
 
